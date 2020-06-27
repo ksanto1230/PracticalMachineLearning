@@ -1,0 +1,87 @@
+---
+title: "PracticalMachineLearningCourseProject"
+author: "Katie Santo"
+date: "6/21/2020"
+output: html_document
+---
+## Background
+
+This is the course project for Practical Machine Learning within the Data Science: Statistics and Machine Learning Specialization. The project uses data from accelerometers on the belt, forearm, arm, and dumbbell of six  participants. The participants performed barbell lifts five different ways (exactly according to specs, throwing elbows to the front, lifting the dumbbell halfway, lowering dumbbell half way, or throwing the hips to the front). The goal of this project is to predict the manner in which the participants performed the barbell lift.
+
+## Data preparation
+
+First, I will load in the data and do some basic exploratory analysis. In the training dataset there are 160 variables and 19,622 observations. From the summary, it looks like there are some variables with majority of the values missing. There are also some variables that do not seem pertinent to predicting the outcome (X, user_name, raw_timestamp_part_1, raw_timestamp_part_2, cvd_timestamp, new_window, num_window). My final training dataset will have 19,622 observations and 53 variables. The testing dataset has 160 variables and 20 observations.
+```{r, include=TRUE}
+# Loading in the training data and getting an overview of the data
+train <- read.csv("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv", header=TRUE, na.strings=c("", "NA"))
+dim(train)
+summary(train)
+View(head(train))
+
+# Removing 100 variables with 'NA'values
+train1 <- train[, apply(train, 2, function(x) !any(is.na(x)))]
+# Removing first 7 variables as they are not pertinent features
+train2 <- train1[, -c(1:7)]
+
+# Loading in the testing data
+test <- read.csv("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv", header=TRUE)
+dim(test)
+```
+
+I will now take the training dataset and split it into training and testing sets using the createDataParition function within the caret package.
+```{r, include=TRUE}
+library(caret)
+split_train <- createDataPartition(y=train2$classe, p=0.7, list=FALSE)
+training1 <- train2[split_train, ]
+dim(training1)
+testing1 <- train2[-split_train, ]
+dim(testing1)
+
+```
+
+
+## Model Building
+
+I will test three models (decision trees, random forests, and generalized  boosted trees) and see which performs better. I will do a 3-fold cross-validation.
+```{r, include=TRUE}
+## Cross-validation
+trcontrol <- trainControl(method="cv", number=3)
+
+## Decision Trees 
+fit1 <-train(classe ~. ,data=training1, method="rpart", trControl=trcontrol)
+
+## Random forests
+rf1 <- train(classe ~. ,data=training1, method="rf", trControl=trcontrol)
+
+## Generalized  boosted trees
+gbm1 <- train(classe ~. ,data=training1, method="gbm", trControl=trcontrol)
+
+
+
+```
+
+
+## Prediction
+From the confusion matrix output, the accuracy for decision trees is 0.4929 resulting in an out of sample error of .5071. This is not a very good model as it is no better than random guessing. Next, I'll look at the random forest model. The accuracy here is excellent with an out of sample error of .0093. Generalized  boosted trees also result in a good accuracy. The out of sample error is .0399. Overall, the random forest model predicts the best.
+```{r, include=TRUE}
+# Decision Tree Prediction
+fit1predict <- predict(fit1, newdata=testing1)
+confusionMatrix(testing1$classe, fit1predict)
+
+#Random Forest Prediction
+rf1predict <- predict(rf1, newdata=testing1) 
+confusionMatrix(testing1$classe, rf1predict)
+
+#Generalized Boosted Trees
+gbm1predict <- predict(gbm1, newdata=testing1) 
+confusionMatrix(testing1$classe, gbm1predict)
+
+```
+
+I will use the random forest model to predict the manner in which the 20 participants did the exercise using the test dataset.
+```{r, include=TRUE}
+predict20 <- predict(rf1, newdata=test)
+predict20
+
+
+```
